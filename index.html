@@ -1,0 +1,873 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Работаем с языковой моделью · день 2</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Unbounded:wght@500;700&display=swap">
+<style>
+/* Layout: одна колонка ~860px, как лента чата; задания — «сообщения» с кодом и превью диалога */
+:root {
+  --bg: #EDF2F7;
+  --surface: #FFFFFF;
+  --surface-2: #F5F8FB;
+  --ink: #15233A;
+  --muted: #5E6B80;
+  --line: #D9E2EC;
+  --accent: #1E8FC7;
+  --accent-soft: #DCEBF7;
+  --amber: #C98512;
+  --amber-soft: #FCEFD6;
+  --green: #2E9A63;
+  --green-soft: #DDF3E6;
+  --red: #CF4A37;
+  --red-soft: #FBE3DF;
+  --bubble-in: #FFFFFF;
+  --bubble-out: #E1F5D8;
+  --chat-bg: #D7E3EE;
+  --key-bg: rgba(255,255,255,.7);
+  --key-bar: #C3D4E4;
+  --code-bg: #F6F8FB;
+  --code-fg: #15233A;
+  --code-kw: #0B62A8;
+  --code-str: #24803F;
+  --code-com: #6C7A91;
+  --code-num: #A65300;
+  --code-fn: #A1307A;
+  --blank-bg: #FFF3D6;
+  --font-display: "Unbounded", "Golos Text", system-ui, sans-serif;
+  --font-body: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 17px; line-height: 1.55; }
+.wrap { max-width: 900px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+a { color: var(--accent); }
+code, kbd { font-family: var(--font-mono); font-size: .9em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; padding: 0 .3em; overflow-wrap: anywhere; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+
+/* шапка */
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+.top .wrap { display: flex; align-items: center; gap: 16px; padding-block: 10px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: .01em; margin-right: auto; }
+.brand-mark { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; flex: none; }
+.brand-mark svg { width: 16px; height: 16px; fill: #fff; transform: translateX(-1px); }
+.days { display: flex; gap: 6px; flex-wrap: wrap; }
+.day-pill { font: 600 14px var(--font-body); border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); border-radius: 999px; padding: 6px 14px; }
+.day-pill[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.day-pill:disabled { opacity: .55; cursor: not-allowed; }
+
+/* герой дня */
+.hero { padding-block: 40px 24px; display: grid; gap: 14px; }
+.eyebrow { font-weight: 600; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.hero h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(26px, 5vw, 40px); line-height: 1.15; }
+.hero .teacher { color: var(--ink); font-weight: 600; font-size: 16px; }
+.hero p { margin: 0; max-width: 65ch; color: var(--muted); font-size: 17px; }
+.schedule { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.slot { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: grid; gap: 2px; min-width: 0; }
+.slot time { font-family: var(--font-mono); font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
+.slot b { font-size: 15px; }
+.slot span { color: var(--muted); font-size: 13px; }
+.slot.practice { background: var(--accent-soft); border-color: transparent; }
+.slot.practice a { text-decoration: none; color: inherit; display: grid; gap: 2px; }
+
+/* легенда */
+.legend { margin-top: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 8px; font-size: 15px; }
+.legend-row { display: block; }
+.blank-demo { font-family: var(--font-mono); background: var(--code-bg); color: var(--code-num); border-radius: 6px; padding: 2px 8px; font-size: 13px; border-bottom: 2px solid var(--amber); }
+
+/* практика */
+.practice-head { padding-block: 40px 14px; display: grid; gap: 10px; scroll-margin-top: 70px; }
+.practice-head h2 { font-family: var(--font-display); font-weight: 700; font-size: clamp(22px, 4vw, 30px); line-height: 1.2; }
+.practice-meta { display: flex; gap: 10px 18px; flex-wrap: wrap; color: var(--muted); font-size: 15px; align-items: center; }
+.progress { display: inline-flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
+.progress-bar { width: 120px; height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.progress-bar i { display: block; height: 100%; width: 0; background: var(--green); transition: width .3s; }
+.levels { display: inline-flex; padding: 4px; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; margin-top: 6px; width: fit-content; max-width: 100%; flex-wrap: wrap; }
+.level-btn { font: 600 15px var(--font-body); border: 0; background: transparent; color: var(--muted); padding: 8px 14px; border-radius: 9px; cursor: pointer; }
+.level-btn small { font-weight: 500; font-size: 12px; opacity: .8; margin-left: 4px; }
+.level-btn[aria-selected="true"] { background: var(--ink); color: var(--surface); }
+.level-note { color: var(--muted); font-size: 15px; margin: 4px 0 0; max-width: 65ch; }
+
+.tasks { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; padding-bottom: 8px; }
+.task { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 20px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; }
+.task.done { border-color: var(--green); }
+.task-head { display: flex; gap: 14px; align-items: flex-start; }
+.task-num { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font: 700 15px var(--font-display); background: var(--accent-soft); color: var(--accent); }
+.task.done .task-num { background: var(--green); color: #fff; }
+.task-title { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.task-title h3 { font-size: 19px; font-weight: 700; line-height: 1.3; }
+.task-title .time { color: var(--muted); font-size: 14px; }
+.done-toggle { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); cursor: pointer; user-select: none; padding: 6px 10px; border-radius: 9px; border: 1px solid var(--line); }
+.done-toggle input { width: 18px; height: 18px; accent-color: var(--green); margin: 0; }
+.task p { margin: 0; max-width: 70ch; }
+.task ol, .task ul { margin: 0; padding-left: 22px; display: grid; gap: 4px; max-width: 70ch; }
+.task li::marker { color: var(--muted); }
+
+/* код */
+.code { background: var(--code-bg); color: var(--code-fg); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-width: 0; }
+.code-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); font: 13px var(--font-mono); color: var(--code-com); flex-wrap: wrap; }
+.code-bar .file { margin-right: auto; }
+.code-btn { font: 600 13px var(--font-body); color: var(--code-fg); background: #FFFFFF; border: 1px solid var(--line); border-radius: 7px; padding: 4px 10px; cursor: pointer; }
+.code-btn:hover { background: #EAF1F8; }
+.code-btn.primary { background: #229ED9; border-color: #229ED9; color: #fff; }
+.code pre { margin: 0; padding: 14px 16px; overflow-x: auto; font: 15px/1.6 var(--font-mono); tab-size: 4; }
+.code .kw { color: var(--code-kw); } .code .str { color: var(--code-str); } .code .com { color: var(--code-com); font-style: italic; }
+.code .num { color: var(--code-num); } .code .fn { color: var(--code-fn); }
+.blank { font: inherit; color: var(--code-num); background: var(--blank-bg); border: 0; border-bottom: 2px solid #F2A93B; border-radius: 4px 4px 0 0; padding: 0 4px; margin: 0 1px; min-width: 4ch; outline: none; }
+.blank:focus { background: #FFE6A8; }
+.blank.ok { border-bottom-color: #2E9A63; color: #1E7A45; background: #E4F5EA; }
+.blank.bad { border-bottom-color: #CF4A37; color: #B0321F; background: #FBE3DF; }
+.check-msg { font: 600 12px var(--font-body); }
+.check-msg.ok { color: #1E7A45; } .check-msg.bad { color: #B0321F; }
+
+/* чат */
+.chat { background: var(--chat-bg); border-radius: 14px; padding: 14px; display: grid; gap: 6px; }
+.chat-label { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.msg { max-width: 82%; padding: 7px 12px; border-radius: 14px; font-size: 15px; line-height: 1.4; white-space: pre-line; box-shadow: 0 1px 0 rgba(0,0,0,.06); overflow-wrap: anywhere; }
+.msg.me { justify-self: end; background: var(--bubble-out); border-bottom-right-radius: 4px; }
+.msg.bot { justify-self: start; background: var(--bubble-in); border-bottom-left-radius: 4px; }
+.msg.cmd { font-family: var(--font-mono); font-size: 14px; }
+
+.inline-keys { justify-self: start; display: grid; gap: 4px; width: min(82%, 360px); margin-top: -2px; }
+.key-row { display: flex; gap: 4px; }
+.key-row span { flex: 1; min-width: 0; text-align: center; padding: 6px 10px; border-radius: 9px; font-size: 14px; font-weight: 600; color: var(--accent); background: var(--key-bg); overflow-wrap: anywhere; }
+.reply-kb { display: grid; gap: 6px; padding: 6px; border-radius: 12px; background: var(--key-bar); margin-top: 2px; }
+.reply-kb .key-row span { background: var(--surface); color: var(--ink); border: 1px solid var(--line); padding: 8px 10px; }
+.svc-switch { display: grid; gap: 8px; margin-top: 6px; padding: 14px 16px; border-radius: 14px; background: var(--accent-soft); }
+.svc-switch .svc-title { font-weight: 700; }
+.svc-switch .levels { margin-top: 0; }
+.svc-only { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+:root[data-svc="groq"] .svc-openrouter, :root[data-svc="openrouter"] .svc-groq { display: none !important; }
+.steps { list-style: none; margin: 4px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 8px; }
+.steps li { display: flex; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+.steps li b { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; font-size: 15px; }
+.steps li span { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.pycharm { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; }
+.pycharm summary { cursor: pointer; font-weight: 700; color: var(--accent); }
+.pycharm ol { margin: 10px 0 0; padding-left: 22px; display: grid; gap: 6px; }
+.hero p b { color: var(--ink); }
+.theory { background: #F3F0FF; border-left: 4px solid #6C4CF5; border-radius: 0 12px 12px 0; padding: 12px 16px; display: grid; gap: 8px; }
+.theory p, .theory ul { margin: 0; }
+.theory ul { padding-left: 22px; display: grid; gap: 4px; }
+.theory-label { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6C4CF5; }
+.models { list-style: none; padding: 0 !important; margin: 0; display: grid; gap: 8px; }
+.models li { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 4px; min-width: 0; }
+.models code { justify-self: start; font-weight: 600; overflow-wrap: anywhere; }
+.full-code { display: none; gap: 6px; }
+.task.show-full .full-code { display: grid; grid-template-columns: minmax(0, 1fr); }
+.task-full-btn { font: 600 15px var(--font-body); border: 1px solid var(--accent); color: var(--accent); background: var(--surface); border-radius: 10px; padding: 9px 14px; cursor: pointer; justify-self: start; max-width: 100%; }
+.task.show-full .task-full-btn { background: var(--accent); color: #fff; }
+.code .add { background: #DDF3E6; box-shadow: -16px 0 0 #DDF3E6, 16px 0 0 #DDF3E6; }
+.add-demo { background: #DDF3E6; padding: 0 6px; border-radius: 4px; color: var(--ink); }
+.full-toggle { font: 600 16px var(--font-body); border: 0; border-radius: 12px; padding: 12px 18px; background: var(--accent); color: #fff; cursor: pointer; justify-self: start; max-width: 100%; }
+.full-toggle[aria-pressed="true"] { background: var(--ink); }
+.callout { border-radius: 12px; padding: 12px 14px; font-size: 15px; display: grid; gap: 4px; }
+.callout.warn { background: var(--amber-soft); }
+.callout.info { background: var(--accent-soft); }
+.callout b { font-weight: 700; }
+
+details.hint { border: 1px dashed var(--line); border-radius: 12px; padding: 10px 14px; }
+details.hint summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+details.hint[open] { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+details.hint[open] summary { margin-bottom: 4px; }
+
+.two-col { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.col-label { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+
+/* шпаргалка */
+.cheat { padding-block: 40px 56px; display: grid; gap: 14px; }
+.cheat h2 { font-family: var(--font-display); font-weight: 700; font-size: 24px; }
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-family: var(--font-mono); font-size: 13.5px; white-space: nowrap; }
+footer { color: var(--muted); font-size: 13px; padding-block: 0 40px; }
+
+button:focus-visible, input:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 720px) {
+  .schedule { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .two-col { grid-template-columns: minmax(0, 1fr); }
+  .task { padding: 16px; }
+  .task-head { flex-wrap: wrap; }
+  .done-toggle { margin-left: 54px; }
+  .task-title { flex-basis: calc(100% - 60px); }
+  .msg { max-width: 92%; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21.5 3.6 2.9 10.8c-1.3.5-1.2 1.3-.2 1.6l4.8 1.5 1.8 5.6c.2.7.4.9.9.9.4 0 .6-.2.9-.4l2.3-2.2 4.7 3.5c.9.5 1.5.2 1.7-.8l3.1-14.6c.3-1.3-.5-1.9-1.4-1.5zM8.3 13.6l9.4-5.9c.4-.3.8-.1.5.2l-7.8 7-.3 3.3z"/></svg></span>
+      <span>Telegram-бот с ИИ · день 2</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <div class="eyebrow">День 2</div>
+    <h1>Работаем с языковой моделью</h1>
+    <p><b>Цель</b> — первая программа на Python, которая задаёт вопросы языковой модели через OpenRouter, и умение менять её ответ: роль, температура, длина, выбор модели.</p>
+    <ol class="steps">
+      <li><b>1</b><span>Почта Gmail</span></li>
+      <li><b>2</b><span>Регистрация на OpenRouter</span></li>
+      <li><b>3</b><span>API-ключ в .env</span></li>
+      <li><b>4</b><span>Наша модель</span></li>
+      <li><b>5</b><span>Первый запрос</span></li>
+      <li><b>6</b><span>Что в ответе</span></li>
+      <li><b>7</b><span>Свой вопрос</span></li>
+      <li><b>8</b><span>Роль модели</span></li>
+      <li><b>9</b><span>Температура</span></li>
+      <li><b>10</b><span>Длина ответа</span></li>
+      <li><b>11</b><span>Сравнить модели</span></li>
+      <li><b>12</b><span>Мини-чат</span></li>
+    </ol>
+    <div class="legend">
+      <div class="legend-row">Сегодня без Telegram: пишем одну программу <code>ai.py</code>, которая общается с языковой моделью прямо в PyCharm. С шага 5 каждое задание — небольшое изменение этого файла: показано, <b>что добавить</b>, и объяснено зачем.</div>
+      <div class="legend-row">В каждом шаге сначала короткая <b>теория</b>, потом задание. В каждом задании есть кнопка <b>«Показать весь код»</b> — там весь файл после этого шага, новые строки подсвечены зелёным. Кнопка ниже открывает весь код сразу во всех заданиях. Внизу страницы — справочник всех параметров.</div>
+    </div>
+    <button class="full-toggle" id="fullToggle" aria-pressed="false">Показать весь код во всех заданиях</button>
+    <details class="pycharm">
+      <summary>Как работать в PyCharm</summary>
+      <ol>
+        <li><b>Проект.</b> <b>File → New Project</b>, имя <code>my_ai</code>, интерпретатор — Python 3.12.</li>
+        <li><b>Терминал.</b> Внизу открой <b>Terminal</b> (<kbd>Alt</kbd>+<kbd>F12</kbd>) — там выполняем <code>pip install</code>.</li>
+        <li><b>Файлы.</b> Правый клик по папке проекта → <b>New → File</b> (для <code>.env</code>, <code>.gitignore</code>) или <b>New → Python File</b> (для <code>ai.py</code>).</li>
+        <li><b>Запуск.</b> Правый клик по <code>ai.py</code> → <b>Run 'ai'</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F10</kbd>). Ответ модели появится внизу, в окне <b>Run</b>. Там же вводишь вопрос.</li>
+      </ol>
+    </details>
+  </section>
+
+  <div id="practices"></div>
+
+  <section class="cheat" id="params">
+    <h2>Справочник: параметры запроса</h2>
+    <p class="level-note">Параметры пишутся в скобках у <code>client.chat.completions.create(...)</code> через запятую, например <code>temperature=0.7</code>. Не указал параметр — модель берёт своё значение по умолчанию. Не каждая модель поддерживает все параметры.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Параметр</th><th>Значения</th><th>Что делает</th></tr></thead>
+        <tbody>
+          <tr><td>model</td><td>строка</td><td>Какая модель отвечает, например <code>openrouter/free</code> или <code>nvidia/nemotron-3.5-lightning:free</code>. <b>Пробуем сегодня.</b></td></tr>
+          <tr><td>messages</td><td>список</td><td>Сообщения, которые видит модель. У каждого есть <code>role</code> и <code>content</code> (текст). <b>Пробуем сегодня.</b></td></tr>
+          <tr><td>role: system</td><td>—</td><td>Инструкция для модели: кем быть и как отвечать. Пишется первым сообщением. <b>Пробуем сегодня.</b></td></tr>
+          <tr><td>role: user</td><td>—</td><td>Сообщение пользователя — твой вопрос. <b>Пробуем сегодня.</b></td></tr>
+          <tr><td>role: assistant</td><td>—</td><td>Прошлый ответ модели. Нужен, чтобы модель «помнила» разговор.</td></tr>
+          <tr><td>temperature</td><td>0 … 2, обычно 1</td><td>Случайность ответа. 0 — почти всегда одинаково, 1.5 — креативно, выше — бывает чепуха. <b>Пробуем сегодня.</b></td></tr>
+          <tr><td>max_tokens</td><td>1 и больше</td><td>Сколько токенов модель может написать. Мало — ответ обрывается. <b>Пробуем сегодня.</b></td></tr>
+          <tr><td>top_p</td><td>0 … 1, обычно 1</td><td>Модель выбирает только из самых вероятных слов, пока их общая вероятность не наберёт top_p. Меньше — осторожнее.</td></tr>
+          <tr><td>top_k</td><td>0 и больше, обычно 0</td><td>Модель выбирает только из k самых вероятных вариантов. 0 — без ограничения.</td></tr>
+          <tr><td>frequency_penalty</td><td>−2 … 2, обычно 0</td><td>Штраф за слова, которые уже часто встречались. Больше — меньше повторов.</td></tr>
+          <tr><td>presence_penalty</td><td>−2 … 2, обычно 0</td><td>Штраф за любое уже использованное слово. Больше — модель чаще переходит к новым темам.</td></tr>
+          <tr><td>repetition_penalty</td><td>0 … 2, обычно 1</td><td>Ещё один способ бороться с повторами. Больше 1 — меньше повторов.</td></tr>
+          <tr><td>min_p</td><td>0 … 1, обычно 0</td><td>Отбрасывает слишком маловероятные слова (относительно самого вероятного).</td></tr>
+          <tr><td>seed</td><td>целое число</td><td>«Зерно» случайности: с одним seed ответы чаще повторяются. Не все модели поддерживают.</td></tr>
+          <tr><td>stop</td><td>список строк</td><td>Модель остановится, как только напишет одну из этих строк.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h2>Что приходит в ответе</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Поле</th><th>Что это</th></tr></thead>
+        <tbody>
+          <tr><td>response.choices[0].message.content</td><td>Текст ответа модели.</td></tr>
+          <tr><td>response.choices[0].finish_reason</td><td>Почему модель остановилась: <code>stop</code> — закончила сама, <code>length</code> — кончился <code>max_tokens</code>.</td></tr>
+          <tr><td>response.model</td><td>Какая модель ответила.</td></tr>
+          <tr><td>response.usage.prompt_tokens</td><td>Сколько токенов занял запрос (вопрос и инструкция).</td></tr>
+          <tr><td>response.usage.completion_tokens</td><td>Сколько токенов в ответе.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section class="cheat" id="errors">
+    <h2>Если что-то пошло не так</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Что видим</th><th>Что сделать</th></tr></thead>
+        <tbody>
+          <tr><td>No module named 'openai' / 'dotenv'</td><td>В терминале PyCharm: <code>pip install openai python-dotenv</code></td></tr>
+          <tr><td>Нет OPENROUTER_API_KEY</td><td>Файл <code>.env</code> лежит рядом с <code>ai.py</code>, называется ровно <code>.env</code>, внутри <code>OPENROUTER_API_KEY=sk-or-v1-…</code> без кавычек</td></tr>
+          <tr><td>AuthenticationError / 401</td><td>Ключ скопирован не полностью или удалён. Создай новый в Keys и вставь в <code>.env</code></td></tr>
+          <tr><td>NotFoundError / 404</td><td>Опечатка в названии модели или модель убрали. Скопируй название из таблицы в шаге 4 или верни <code>openrouter/free</code></td></tr>
+          <tr><td>RateLimitError / 429</td><td>Лимит бесплатных моделей: 20 запросов в минуту и 50 в день на аккаунт. Подожди минуту или смени модель</td></tr>
+          <tr><td>Ответ пустой или None</td><td>Модель потратила токены на «размышления». Увеличь <code>max_tokens</code> или смени модель</td></tr>
+          <tr><td>Программа «висит»</td><td>Модель думает или ждёт твой ввод: посмотри в окно Run внизу PyCharm</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<footer class="wrap">Интенсив «Разработка Telegram-бота с интеграцией искусственного интеллекта» · ИИТ БГУИР</footer>
+
+<script>
+/* ---------- данные заданий ----------
+   ⟦ответ⟧ — пропуск в шаблоне; варианты через |  */
+const R = String.raw;
+
+const PRACTICES = [
+{
+  id: "p1", title: "Задания по шагам", goal: "",
+  basic: [
+ {
+  "title": "Почта Gmail (если её нет)",
+  "theory": "<p><b>Языковая модель</b> (по-английски LLM) — программа, которая прочитала огромное количество текстов и научилась продолжать текст: на каждом шаге она угадывает, какое слово лучше всего подходит следующим. Так работают ChatGPT, Gemini, GigaChat и другие. Сегодня мы напишем на Python свою программу, которая задаёт вопросы такой модели.</p>",
+  "body": "<p>Чтобы пользоваться моделями, нужен аккаунт на сайте OpenRouter, а для него — почта. Есть Gmail — сразу переходи к шагу 2.</p><ol><li>Открой <a href=\"https://accounts.google.com/signup\" target=\"_blank\" rel=\"noopener\">accounts.google.com/signup</a>.</li><li>Введи имя, дату рождения, придумай адрес <code>…@gmail.com</code> и надёжный пароль.</li><li>Запиши адрес и пароль туда, где их не увидят другие.</li></ol>"
+ },
+ {
+  "title": "Регистрация на OpenRouter",
+  "theory": "<p><b>OpenRouter</b> — посредник между твоей программой и моделями. Моделей много, их делают разные компании (Google, NVIDIA, Mistral и другие), и у каждой свои правила подключения. OpenRouter собрал их в одном месте: одна регистрация, один ключ — и можно обращаться к сотням моделей. Многие из них бесплатные.</p>",
+  "body": "<ol><li>Открой <a href=\"https://openrouter.ai\" target=\"_blank\" rel=\"noopener\">openrouter.ai</a> и нажми кнопку входа в правом верхнем углу (<b>Sign up</b> или <b>Sign in</b>).</li><li>Выбери <b>Continue with Google</b> и войди своей почтой Gmail.</li><li>Прими условия. Вводить карту и пополнять баланс <b>не нужно</b>: бесплатные модели работают без денег.</li></ol>",
+  "callout": [
+   "info",
+   "У каждого свой аккаунт: на бесплатных моделях это <b>50 запросов в день</b> и 20 в минуту. Хватит на все задания, если не тратить запросы зря."
+  ]
+ },
+ {
+  "title": "API-ключ в файл .env",
+  "theory": "<p><b>API</b> — способ, которым одна программа общается с другой. Наша программа будет отправлять OpenRouter вопрос и получать ответ. <b>API-ключ</b> — пароль, по которому OpenRouter узнаёт, что запрос пришёл от тебя. Это как токен бота: ключ кладём в файл <code>.env</code>, а не в код, и никому не показываем.</p>",
+  "body": "<ol><li>На OpenRouter открой меню справа вверху → <b>Keys</b> (или сразу <a href=\"https://openrouter.ai/settings/keys\" target=\"_blank\" rel=\"noopener\">openrouter.ai/settings/keys</a>).</li><li>Нажми <b>Create API Key</b>, назови его, например, <code>ai</code>, нажми <b>Create</b>.</li><li>Скопируй ключ сразу: он начинается с <code>sk-or-v1-</code> и показывается только один раз.</li><li>В PyCharm создай новый проект <code>my_ai</code> (<b>File → New Project</b>, Python 3.12).</li><li>Правый клик по папке проекта → <b>New → File</b> → <code>.env</code>. Вставь туда ключ, как в примере. Так же создай <code>.gitignore</code>.</li></ol>",
+  "twoCol": [
+   {
+    "label": "Файл .env",
+    "file": ".env",
+    "lang": "plain",
+    "src": "OPENROUTER_API_KEY=sk-or-v1-вставь_сюда_свой_ключ"
+   },
+   {
+    "label": "Файл .gitignore",
+    "file": ".gitignore",
+    "lang": "plain",
+    "src": ".env\n.venv/"
+   }
+  ],
+  "after": "<p>Ключ — без кавычек и без пробелов вокруг «=». <code>.gitignore</code> не даст случайно выложить <code>.env</code> в интернет.</p>",
+  "full": {
+   "file": ".env — весь файл",
+   "lang": "plain",
+   "src": "OPENROUTER_API_KEY=sk-or-v1-вставь_сюда_свой_ключ",
+   "mark": [
+    0
+   ]
+  }
+ },
+ {
+  "title": "Наша модель",
+  "theory": "<p>У каждой модели на OpenRouter есть <b>название для кода</b>: <code>компания/модель</code>. Приписка <code>:free</code> в конце означает, что модель бесплатная.</p><p>Модели отличаются <b>модальностями</b> — видами данных, с которыми они работают:</p><ul><li><b>Text → Text</b>: текст на входе и на выходе. С такими работаем сегодня.</li><li><b>Image → Text</b>: модель «видит» картинку и описывает её.</li><li><b>Text → Image</b>: модель рисует картинку по описанию.</li><li><b>Audio</b>, <b>Video</b>: понимают звук и видео.</li></ul><p>Посмотреть все модели можно на <a href=\"https://openrouter.ai/models\" target=\"_blank\" rel=\"noopener\">openrouter.ai/models</a>.</p>",
+  "body": "<p>Начинаем с <code>openrouter/free</code> — это не одна модель, а «умный выбор»: OpenRouter сам отправляет запрос свободной бесплатной модели. Это название понадобится в следующем шаге:</p>",
+  "code": [
+   {
+    "file": "название модели",
+    "lang": "plain",
+    "src": "openrouter/free"
+   }
+  ],
+  "after": "<p>Вот бесплатные модели, которые можно пробовать сегодня. Название для кода устроено так: <code>компания/модель:free</code>.</p><ul class=\"models\"><li><code>openrouter/free</code><span><b>Начинаем с неё.</b> Самый надёжный вариант для обучения: OpenRouter сам выбирает свободную бесплатную модель, меньше ошибок 404 и 429.</span></li><li><code>nvidia/nemotron-3.5-lightning:free</code><span>Быстрые ответы: простой чат, тексты, ответы на вопросы.</span></li><li><code>cohere/north-mini-code:free</code><span>Код: написать функцию, найти ошибку, объяснить программу.</span></li><li><code>dots-studio/dots-3-note-preview:free</code><span>Сложные логические задачи: очень большая модель, хорошо рассуждает по шагам.</span></li><li><code>nvidia/nemotron-3-ultra-550b-a55b:free</code><span>Самая мощная модель NVIDIA в списке: глубокий анализ, «тяжёлые» задачи. Может отвечать дольше.</span></li></ul><p>Какую модель выбрал OpenRouter, увидим в шаге 6.</p>",
+  "callout": [
+   "info",
+   "Бесплатные модели иногда пропадают из списка. Если твоя модель не работает — возьми любую другую с <code>:free</code> или впиши <code>openrouter/free</code>: OpenRouter сам выберет бесплатную модель."
+  ]
+ },
+ {
+  "title": "Первый запрос к модели",
+  "theory": "<p>Программа общается с моделью так: <b>создаём клиента</b> (подключение к OpenRouter) → <b>отправляем запрос</b> с вопросом → <b>получаем ответ</b> и печатаем его. Для этого есть готовая библиотека <code>openai</code>. Её сделали для моделей OpenAI, но OpenRouter понимает тот же «язык», поэтому мы просто указываем ей адрес OpenRouter.</p>",
+  "body": "<p>В терминале PyCharm (внизу, <kbd>Alt</kbd>+<kbd>F12</kbd>) установи библиотеки. Потом правый клик по папке проекта → <b>New → Python File</b> → <code>ai</code>. Вставь код и запусти: правый клик по <code>ai.py</code> → <b>Run 'ai'</b>.</p>",
+  "code": [
+   {
+    "file": "терминал PyCharm",
+    "lang": "shell",
+    "src": "pip install openai python-dotenv"
+   },
+   {
+    "file": "ai.py",
+    "lang": "py",
+    "src": "import os\nimport sys\nfrom dotenv import load_dotenv\nfrom openai import OpenAI\n\nload_dotenv()\nAPI_KEY = os.getenv(\"OPENROUTER_API_KEY\")\nif not API_KEY:\n    sys.exit(\"Нет OPENROUTER_API_KEY: проверь файл .env\")\n\nMODEL = \"openrouter/free\"\n\nclient = OpenAI(\n    base_url=\"https://openrouter.ai/api/v1\",\n    api_key=API_KEY,\n)\n\nquestion = \"Расскажи короткую шутку про программистов\"\n\nresponse = client.chat.completions.create(\n    model=MODEL,\n    messages=[\n        {\"role\": \"user\", \"content\": question},\n    ],\n)\n\nprint(response.choices[0].message.content)"
+   }
+  ],
+  "after": "<ul><li><b>Верх файла</b> — как в боте: читаем ключ из <code>.env</code>, без ключа программа останавливается с понятным сообщением.</li><li><code>MODEL</code> — название модели из шага 4.</li><li><code>client</code> — подключение к OpenRouter: адрес <code>base_url</code> и наш ключ.</li><li><code>question</code> — текст вопроса.</li><li><code>client.chat.completions.create(...)</code> — отправить запрос. В скобках — <b>параметры</b>: какая модель и какие сообщения.</li><li><code>messages</code> — список сообщений. У каждого есть роль (<code>role</code>) и текст (<code>content</code>). <code>\"user\"</code> — это мы.</li><li><code>response.choices[0].message.content</code> — текст ответа модели.</li></ul>",
+  "chat": [
+   [
+    "me",
+    "Расскажи короткую шутку про программистов"
+   ],
+   [
+    "bot",
+    "— Почему программисты путают Хэллоуин и Рождество?\n— Потому что Oct 31 = Dec 25."
+   ]
+  ],
+  "full": {
+   "file": "ai.py — весь файл после шага 5",
+   "lang": "py",
+   "src": "import os\nimport sys\nfrom dotenv import load_dotenv\nfrom openai import OpenAI\n\nload_dotenv()\nAPI_KEY = os.getenv(\"OPENROUTER_API_KEY\")\nif not API_KEY:\n    sys.exit(\"Нет OPENROUTER_API_KEY: проверь файл .env\")\n\nMODEL = \"openrouter/free\"\n\nclient = OpenAI(\n    base_url=\"https://openrouter.ai/api/v1\",\n    api_key=API_KEY,\n)\n\nquestion = \"Расскажи короткую шутку про программистов\"\n\nresponse = client.chat.completions.create(\n    model=MODEL,\n    messages=[\n        {\"role\": \"user\", \"content\": question},\n    ],\n)\n\nprint(response.choices[0].message.content)",
+   "mark": []
+  }
+ },
+ {
+  "title": "Что ещё приходит в ответе",
+  "theory": "<p>Модель читает и пишет не буквами и не словами, а <b>токенами</b> — кусочками текста. «Привет, как дела?» — это примерно 6 токенов: «При», «вет», «,», « как», « дела», «?». Длина ответа, лимиты и цены у моделей считаются в токенах.</p>",
+  "body": "<p>Кроме текста в ответе (<code>response</code>) есть служебные сведения. Допиши в <b>конец</b> файла три строки:</p>",
+  "code": [
+   {
+    "file": "ai.py · добавить в конец",
+    "lang": "py",
+    "src": "print(\"Модель:\", response.model)\nprint(\"Токенов в вопросе:\", response.usage.prompt_tokens)\nprint(\"Токенов в ответе:\", response.usage.completion_tokens)"
+   }
+  ],
+  "after": "<p>Запусти ещё раз. Сколько токенов занял вопрос? А ответ?</p><p>У нас <code>MODEL = \"openrouter/free\"</code>, поэтому строка «Модель:» показывает, <b>какую модель выбрал OpenRouter</b>. Запусти программу 2–3 раза: модель может меняться.</p>",
+  "full": {
+   "file": "ai.py — весь файл после шага 6",
+   "lang": "py",
+   "src": "import os\nimport sys\nfrom dotenv import load_dotenv\nfrom openai import OpenAI\n\nload_dotenv()\nAPI_KEY = os.getenv(\"OPENROUTER_API_KEY\")\nif not API_KEY:\n    sys.exit(\"Нет OPENROUTER_API_KEY: проверь файл .env\")\n\nMODEL = \"openrouter/free\"\n\nclient = OpenAI(\n    base_url=\"https://openrouter.ai/api/v1\",\n    api_key=API_KEY,\n)\n\nquestion = \"Расскажи короткую шутку про программистов\"\n\nresponse = client.chat.completions.create(\n    model=MODEL,\n    messages=[\n        {\"role\": \"user\", \"content\": question},\n    ],\n)\n\nprint(response.choices[0].message.content)\nprint(\"Модель:\", response.model)\nprint(\"Токенов в вопросе:\", response.usage.prompt_tokens)\nprint(\"Токенов в ответе:\", response.usage.completion_tokens)",
+   "mark": [
+    27,
+    28,
+    29
+   ]
+  }
+ },
+ {
+  "title": "Задай свой вопрос",
+  "theory": "<p><code>input(\"…\")</code> печатает подсказку и ждёт, пока ты напишешь текст и нажмёшь <kbd>Enter</kbd>. Написанное попадает в переменную. Так программа получает вопрос с клавиатуры.</p>",
+  "body": "<p>Поменяй одну строку — где задаётся <code>question</code>:</p>",
+  "twoCol": [
+   {
+    "label": "Было",
+    "file": "ai.py",
+    "lang": "py",
+    "src": "question = \"Расскажи короткую шутку про программистов\""
+   },
+   {
+    "label": "Стало",
+    "file": "ai.py",
+    "lang": "py",
+    "src": "question = input(\"Твой вопрос: \")"
+   }
+  ],
+  "after": "<p>Запусти и напиши вопрос внизу PyCharm, в окне <b>Run</b>. Попробуй три разных вопроса — каждый раз запускай программу заново.</p>",
+  "chat": [
+   [
+    "me",
+    "Твой вопрос: Почему небо голубое?"
+   ],
+   [
+    "bot",
+    "Солнечный свет рассеивается в воздухе, и сильнее всего — синие лучи…"
+   ]
+  ],
+  "full": {
+   "file": "ai.py — весь файл после шага 7",
+   "lang": "py",
+   "src": "import os\nimport sys\nfrom dotenv import load_dotenv\nfrom openai import OpenAI\n\nload_dotenv()\nAPI_KEY = os.getenv(\"OPENROUTER_API_KEY\")\nif not API_KEY:\n    sys.exit(\"Нет OPENROUTER_API_KEY: проверь файл .env\")\n\nMODEL = \"openrouter/free\"\n\nclient = OpenAI(\n    base_url=\"https://openrouter.ai/api/v1\",\n    api_key=API_KEY,\n)\n\nquestion = input(\"Твой вопрос: \")\n\nresponse = client.chat.completions.create(\n    model=MODEL,\n    messages=[\n        {\"role\": \"user\", \"content\": question},\n    ],\n)\n\nprint(response.choices[0].message.content)\nprint(\"Модель:\", response.model)\nprint(\"Токенов в вопросе:\", response.usage.prompt_tokens)\nprint(\"Токенов в ответе:\", response.usage.completion_tokens)",
+   "mark": [
+    17
+   ]
+  }
+ },
+ {
+  "title": "Дай модели роль",
+  "theory": "<p>У сообщений в <code>messages</code> бывают три роли:</p><ul><li><code>system</code> — инструкция для модели: кем быть и как отвечать. Пользователь её не видит, а модель слушается.</li><li><code>user</code> — сообщение человека.</li><li><code>assistant</code> — прошлый ответ модели (понадобится, чтобы модель помнила разговор).</li></ul>",
+  "body": "<p>Два изменения:</p><ol><li>После строки с <code>MODEL</code> добавь строку <code>ROLE</code> — текст роли.</li><li>В <code>messages</code> <b>первым</b> добавь сообщение с ролью <code>system</code>.</li></ol>",
+  "code": [
+   {
+    "file": "ai.py · после MODEL",
+    "lang": "py",
+    "src": "ROLE = \"Ты пират. Отвечай коротко, в пиратском стиле, с «Йо-хо-хо!»\""
+   },
+   {
+    "file": "ai.py · messages",
+    "lang": "py",
+    "src": "    messages=[\n        {\"role\": \"system\", \"content\": ROLE},\n        {\"role\": \"user\", \"content\": question},\n    ],"
+   }
+  ],
+  "after": "<p>Задай один и тот же вопрос с разными ролями — меняй только текст в <code>ROLE</code>:</p><ul><li>«Ты учитель физики. Объясняй просто, как для пятиклассника».</li><li>«Ты поэт. Отвечай четверостишием».</li><li>«Отвечай одним предложением, не больше 10 слов».</li><li>Придумай свою роль.</li></ul>",
+  "chat": [
+   [
+    "me",
+    "Твой вопрос: Почему небо голубое?"
+   ],
+   [
+    "bot",
+    "Йо-хо-хо! Солнце рассыпает синий свет по небу, как пираты — золото по палубе!"
+   ]
+  ],
+  "full": {
+   "file": "ai.py — весь файл после шага 8",
+   "lang": "py",
+   "src": "import os\nimport sys\nfrom dotenv import load_dotenv\nfrom openai import OpenAI\n\nload_dotenv()\nAPI_KEY = os.getenv(\"OPENROUTER_API_KEY\")\nif not API_KEY:\n    sys.exit(\"Нет OPENROUTER_API_KEY: проверь файл .env\")\n\nMODEL = \"openrouter/free\"\nROLE = \"Ты пират. Отвечай коротко, в пиратском стиле, с «Йо-хо-хо!»\"\n\nclient = OpenAI(\n    base_url=\"https://openrouter.ai/api/v1\",\n    api_key=API_KEY,\n)\n\nquestion = input(\"Твой вопрос: \")\n\nresponse = client.chat.completions.create(\n    model=MODEL,\n    messages=[\n        {\"role\": \"system\", \"content\": ROLE},\n        {\"role\": \"user\", \"content\": question},\n    ],\n)\n\nprint(response.choices[0].message.content)\nprint(\"Модель:\", response.model)\nprint(\"Токенов в вопросе:\", response.usage.prompt_tokens)\nprint(\"Токенов в ответе:\", response.usage.completion_tokens)",
+   "mark": [
+    11,
+    23
+   ]
+  }
+ },
+ {
+  "title": "Температура: скучно или креативно",
+  "theory": "<p>Модель выбирает следующее слово не всегда самое вероятное — в выборе есть случайность. <code>temperature</code> задаёт, насколько её много:</p><ul><li><b>0</b> — модель почти всегда отвечает одинаково. Подходит для точных ответов.</li><li><b>1</b> — обычный режим.</li><li><b>1.5</b> — неожиданные, креативные ответы. Ближе к 2 модель может начать писать чепуху.</li></ul>",
+  "body": "<p>Добавь в запрос строку <code>temperature=0,</code> — после <code>messages</code>, перед закрывающей скобкой:</p>",
+  "code": [
+   {
+    "file": "ai.py · конец запроса",
+    "lang": "py",
+    "src": "    ],\n    temperature=0,\n)"
+   }
+  ],
+  "after": "<p>Задай вопрос «Придумай название для кафе» <b>три раза</b> (три запуска). Потом поставь <code>temperature=1.5</code> и снова три раза. Сравни, где названия интереснее.</p>",
+  "full": {
+   "file": "ai.py — весь файл после шага 9",
+   "lang": "py",
+   "src": "import os\nimport sys\nfrom dotenv import load_dotenv\nfrom openai import OpenAI\n\nload_dotenv()\nAPI_KEY = os.getenv(\"OPENROUTER_API_KEY\")\nif not API_KEY:\n    sys.exit(\"Нет OPENROUTER_API_KEY: проверь файл .env\")\n\nMODEL = \"openrouter/free\"\nROLE = \"Ты пират. Отвечай коротко, в пиратском стиле, с «Йо-хо-хо!»\"\n\nclient = OpenAI(\n    base_url=\"https://openrouter.ai/api/v1\",\n    api_key=API_KEY,\n)\n\nquestion = input(\"Твой вопрос: \")\n\nresponse = client.chat.completions.create(\n    model=MODEL,\n    messages=[\n        {\"role\": \"system\", \"content\": ROLE},\n        {\"role\": \"user\", \"content\": question},\n    ],\n    temperature=0,\n)\n\nprint(response.choices[0].message.content)\nprint(\"Модель:\", response.model)\nprint(\"Токенов в вопросе:\", response.usage.prompt_tokens)\nprint(\"Токенов в ответе:\", response.usage.completion_tokens)",
+   "mark": [
+    26
+   ]
+  }
+ },
+ {
+  "title": "Длина ответа: max_tokens",
+  "theory": "<p><code>max_tokens</code> — сколько токенов модель может написать в ответе. Если места не хватило, ответ обрывается. Почему модель остановилась, видно в <code>finish_reason</code>: <code>stop</code> — закончила сама, <code>length</code> — кончилось место.</p>",
+  "body": "<p>Два изменения:</p><ol><li>В запросе поставь <code>temperature=1</code> (обычный режим) и добавь <code>max_tokens=30</code>.</li><li>После строки, которая печатает ответ, добавь печать <code>finish_reason</code>.</li></ol>",
+  "code": [
+   {
+    "file": "ai.py · конец запроса",
+    "lang": "py",
+    "src": "    temperature=1,\n    max_tokens=30,\n)"
+   },
+   {
+    "file": "ai.py · после print с ответом",
+    "lang": "py",
+    "src": "print(\"Почему остановилась:\", response.choices[0].finish_reason)"
+   }
+  ],
+  "after": "<p>Попроси «Расскажи историю про кота» — ответ оборвётся на полуслове, причина будет <code>length</code>. Поставь <code>max_tokens=500</code> — модель закончит сама, причина <code>stop</code>.</p>",
+  "callout": [
+   "info",
+   "Если ответ пустой — модель могла потратить токены на «размышления» перед ответом. Увеличь <code>max_tokens</code>."
+  ],
+  "full": {
+   "file": "ai.py — весь файл после шага 10",
+   "lang": "py",
+   "src": "import os\nimport sys\nfrom dotenv import load_dotenv\nfrom openai import OpenAI\n\nload_dotenv()\nAPI_KEY = os.getenv(\"OPENROUTER_API_KEY\")\nif not API_KEY:\n    sys.exit(\"Нет OPENROUTER_API_KEY: проверь файл .env\")\n\nMODEL = \"openrouter/free\"\nROLE = \"Ты пират. Отвечай коротко, в пиратском стиле, с «Йо-хо-хо!»\"\n\nclient = OpenAI(\n    base_url=\"https://openrouter.ai/api/v1\",\n    api_key=API_KEY,\n)\n\nquestion = input(\"Твой вопрос: \")\n\nresponse = client.chat.completions.create(\n    model=MODEL,\n    messages=[\n        {\"role\": \"system\", \"content\": ROLE},\n        {\"role\": \"user\", \"content\": question},\n    ],\n    temperature=1,\n    max_tokens=30,\n)\n\nprint(response.choices[0].message.content)\nprint(\"Почему остановилась:\", response.choices[0].finish_reason)\nprint(\"Модель:\", response.model)\nprint(\"Токенов в вопросе:\", response.usage.prompt_tokens)\nprint(\"Токенов в ответе:\", response.usage.completion_tokens)",
+   "mark": [
+    26,
+    27,
+    31
+   ]
+  }
+ },
+ {
+  "title": "Сравни модели",
+  "theory": "<p>Модели отличаются размером, скоростью и тем, на каких текстах учились. Одна лучше шутит, другая точнее отвечает, третья лучше пишет по-русски. Чтобы сменить модель, в нашем коде достаточно поменять одну строку — <code>MODEL</code>.</p>",
+  "body": "<p>Замени строку <code>MODEL</code> на пять строк ниже и поставь <code>max_tokens=500</code>. Строки с <code>#</code> в начале — <b>комментарии</b>: Python их не выполняет. Сейчас включена одна модель — та, что без <code>#</code>. Чтобы переключиться, поставь <code>#</code> перед ней и убери <code>#</code> перед нужной.</p>",
+  "code": [
+   {
+    "file": "ai.py · вместо строки MODEL",
+    "lang": "py",
+    "src": "# MODEL = \"openrouter/free\"\nMODEL = \"nvidia/nemotron-3.5-lightning:free\"\n# MODEL = \"cohere/north-mini-code:free\"\n# MODEL = \"dots-studio/dots-3-note-preview:free\"\n# MODEL = \"nvidia/nemotron-3-ultra-550b-a55b:free\""
+   }
+  ],
+  "after": "<p>Задай один и тот же вопрос разным моделям (список и для чего они — в шаге 4):</p><ul><li>«Придумай шутку про школу» — какая смешнее?</li><li>«Напиши на Python функцию, которая считает сумму чисел от 1 до n» — попробуй <code>cohere/north-mini-code:free</code>.</li><li>«У Маши 3 брата, у каждого брата 2 сестры. Сколько сестёр у Маши?» — сравни, кто рассуждает правильнее.</li></ul><p>Какая модель отвечает быстрее? Какая лучше пишет по-русски?</p>",
+  "callout": [
+   "info",
+   "Большим моделям может понадобиться больше времени и токенов. Если ответ пустой или обрывается — увеличь <code>max_tokens</code>."
+  ],
+  "full": {
+   "file": "ai.py — весь файл после шага 11",
+   "lang": "py",
+   "src": "import os\nimport sys\nfrom dotenv import load_dotenv\nfrom openai import OpenAI\n\nload_dotenv()\nAPI_KEY = os.getenv(\"OPENROUTER_API_KEY\")\nif not API_KEY:\n    sys.exit(\"Нет OPENROUTER_API_KEY: проверь файл .env\")\n\n# MODEL = \"openrouter/free\"\nMODEL = \"nvidia/nemotron-3.5-lightning:free\"\n# MODEL = \"cohere/north-mini-code:free\"\n# MODEL = \"dots-studio/dots-3-note-preview:free\"\n# MODEL = \"nvidia/nemotron-3-ultra-550b-a55b:free\"\nROLE = \"Ты пират. Отвечай коротко, в пиратском стиле, с «Йо-хо-хо!»\"\n\nclient = OpenAI(\n    base_url=\"https://openrouter.ai/api/v1\",\n    api_key=API_KEY,\n)\n\nquestion = input(\"Твой вопрос: \")\n\nresponse = client.chat.completions.create(\n    model=MODEL,\n    messages=[\n        {\"role\": \"system\", \"content\": ROLE},\n        {\"role\": \"user\", \"content\": question},\n    ],\n    temperature=1,\n    max_tokens=500,\n)\n\nprint(response.choices[0].message.content)\nprint(\"Почему остановилась:\", response.choices[0].finish_reason)\nprint(\"Модель:\", response.model)\nprint(\"Токенов в вопросе:\", response.usage.prompt_tokens)\nprint(\"Токенов в ответе:\", response.usage.completion_tokens)",
+   "mark": [
+    10,
+    11,
+    12,
+    13,
+    14,
+    31
+   ]
+  }
+ },
+ {
+  "title": "Мини-чат в консоли",
+  "theory": "<p><code>while True:</code> — бесконечный цикл: всё, что под ним с отступом, повторяется снова и снова. <code>break</code> — выход из цикла. Мы оборачиваем в цикл вопрос, запрос и печать ответа, и получается чат.</p>",
+  "body": "<ol><li>Перед строкой <code>question = …</code> добавь <code>while True:</code>.</li><li>Выдели всё от <code>question</code> до конца файла и нажми <kbd>Tab</kbd> — строки сдвинутся на 4 пробела внутрь цикла.</li><li>Сразу после <code>question = …</code> добавь проверку на слово «выход».</li></ol>",
+  "code": [
+   {
+    "file": "ai.py · начало цикла",
+    "lang": "py",
+    "src": "while True:\n    question = input(\"Твой вопрос: \")\n    if question == \"выход\":\n        break"
+   }
+  ],
+  "after": "<p>Проще всего — нажать «Показать весь код после этого шага» и сравнить со своим файлом.</p>",
+  "chat": [
+   [
+    "me",
+    "Твой вопрос: Меня зовут Аня"
+   ],
+   [
+    "bot",
+    "Йо-хо-хо, Аня! Добро пожаловать на борт!"
+   ],
+   [
+    "me",
+    "Твой вопрос: Как меня зовут?"
+   ],
+   [
+    "bot",
+    "Йо-хо-хо! Не знаю, юнга, ты не говорил(а)!"
+   ],
+   [
+    "me",
+    "Твой вопрос: выход"
+   ]
+  ],
+  "callout": [
+   "info",
+   "<b>Заметил?</b> Модель не помнит прошлые вопросы: каждый запрос для неё новый. Память — это список <code>messages</code>, в который добавляют прошлые вопросы и ответы. Это следующий шаг. А пока помни: каждый вопрос — один запрос, их <b>50 в день</b>."
+  ],
+  "full": {
+   "file": "ai.py — весь файл после шага 12",
+   "lang": "py",
+   "src": "import os\nimport sys\nfrom dotenv import load_dotenv\nfrom openai import OpenAI\n\nload_dotenv()\nAPI_KEY = os.getenv(\"OPENROUTER_API_KEY\")\nif not API_KEY:\n    sys.exit(\"Нет OPENROUTER_API_KEY: проверь файл .env\")\n\n# MODEL = \"openrouter/free\"\nMODEL = \"nvidia/nemotron-3.5-lightning:free\"\n# MODEL = \"cohere/north-mini-code:free\"\n# MODEL = \"dots-studio/dots-3-note-preview:free\"\n# MODEL = \"nvidia/nemotron-3-ultra-550b-a55b:free\"\nROLE = \"Ты пират. Отвечай коротко, в пиратском стиле, с «Йо-хо-хо!»\"\n\nclient = OpenAI(\n    base_url=\"https://openrouter.ai/api/v1\",\n    api_key=API_KEY,\n)\n\nwhile True:\n    question = input(\"Твой вопрос: \")\n    if question == \"выход\":\n        break\n\n    response = client.chat.completions.create(\n        model=MODEL,\n        messages=[\n            {\"role\": \"system\", \"content\": ROLE},\n            {\"role\": \"user\", \"content\": question},\n        ],\n        temperature=1,\n        max_tokens=500,\n    )\n\n    print(response.choices[0].message.content)\n    print(\"Почему остановилась:\", response.choices[0].finish_reason)\n    print(\"Модель:\", response.model)\n    print(\"Токенов в вопросе:\", response.usage.prompt_tokens)\n    print(\"Токенов в ответе:\", response.usage.completion_tokens)",
+   "mark": [
+    22,
+    23,
+    24,
+    25,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    37,
+    38,
+    39,
+    40,
+    41
+   ]
+  }
+ }
+],
+  middle: [],
+},
+];
+
+
+/* ---------- подсветка ---------- */
+const KW = new Set("import from def async await return if elif else for in not and or None True False while as with try except pass lambda is".split(" "));
+function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function hl(src, lang) {
+  if (lang === "plain") return esc(src);
+  if (lang === "shell") {
+    return src.split("\n").map(line => {
+      const m = line.match(/^(\s*)(\S+)(.*)$/);
+      if (!m || !/^(mkdir|cd|python3?|pip|source|\.venv)/.test(m[2])) return esc(line);
+      return esc(m[1]) + `<span class="kw">${esc(m[2])}</span>` + esc(m[3]);
+    }).join("\n");
+  }
+  const re = /(#[^\n]*)|("(?:[^"\\\n]|\\.)*"?|'(?:[^'\\\n]|\\.)*'?)|(\b\d+\b)|([A-Za-z_][A-Za-z0-9_]*)|([\s\S])/g;
+  let out = "", m, prevDef = false;
+  while ((m = re.exec(src))) {
+    if (m[1]) out += `<span class="com">${esc(m[1])}</span>`;
+    else if (m[2]) out += `<span class="str">${esc(m[2])}</span>`;
+    else if (m[3]) out += `<span class="num">${m[3]}</span>`;
+    else if (m[4]) {
+      if (KW.has(m[4])) out += `<span class="kw">${m[4]}</span>`;
+      else if (prevDef) out += `<span class="fn">${m[4]}</span>`;
+      else out += m[4];
+      prevDef = m[4] === "def";
+      continue;
+    } else out += esc(m[5]);
+  }
+  return out;
+}
+
+/* ---------- построение ---------- */
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+let blankId = 0;
+
+function codeBlock(c, taskKey) {
+  const wrap = document.createElement("div");
+  wrap.className = "code";
+  const parts = c.src.split(/⟦([^⟧]*)⟧/);
+  let html = "", hasBlanks = parts.length > 1;
+  parts.forEach((p, i) => {
+    if (i % 2 === 0) html += hl(p, c.lang);
+    else {
+      const answers = p.split("|");
+      const w = Math.max(...answers.map(a => a.length), 3) + 1;
+      const id = `b${taskKey}-${blankId++}`;
+      html += `<input class="blank" id="${id}" aria-label="Пропуск" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:${w}ch" data-answers="${esc(p)}">`;
+    }
+  });
+  wrap.innerHTML = `<div class="code-bar"><span class="file">${esc(c.file || "")}</span>${hasBlanks ? '<span class="check-msg" role="status"></span><button class="code-btn" data-act="check">Проверить</button>' : ""}<button class="code-btn primary" data-act="copy">Скопировать</button></div><pre></pre>`;
+  if (c.mark && c.mark.length) html = html.split("\n").map((l, i) => c.mark.includes(i) ? `<span class="add">${l}</span>` : l).join("\n");
+  wrap.querySelector("pre").innerHTML = html;
+  const pre = wrap.querySelector("pre");
+  wrap.querySelector('[data-act="copy"]').addEventListener("click", e => copyCode(pre, e.currentTarget));
+  const chk = wrap.querySelector('[data-act="check"]');
+  if (chk) chk.addEventListener("click", () => checkBlanks(wrap));
+  pre.querySelectorAll(".blank").forEach(inp => inp.addEventListener("input", () => { inp.classList.remove("ok", "bad"); }));
+  return wrap;
+}
+
+function checkBlanks(wrap) {
+  const blanks = [...wrap.querySelectorAll(".blank")];
+  let bad = 0;
+  blanks.forEach(b => {
+    const ok = b.dataset.answers.split("|").some(a => a.trim() === b.value.trim());
+    b.classList.toggle("ok", ok); b.classList.toggle("bad", !ok);
+    if (!ok) bad++;
+  });
+  const msg = wrap.querySelector(".check-msg");
+  msg.className = "check-msg " + (bad ? "bad" : "ok");
+  msg.textContent = bad ? `Проверь пропуски: ${bad} из ${blanks.length}` : "Всё верно! Копируй код";
+}
+
+function codeText(pre) {
+  let s = "";
+  pre.childNodes.forEach(n => {
+    if (n.nodeType === 3) s += n.textContent;
+    else if (n.classList && n.classList.contains("blank")) s += n.value.trim() || "___";
+    else s += n.textContent;
+  });
+  return s;
+}
+
+function copyCode(pre, btn) {
+  const text = codeText(pre);
+  const done = () => { const t = btn.textContent; btn.textContent = "Скопировано"; setTimeout(() => btn.textContent = t, 1400); };
+  const fallback = () => {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(ta);
+    if (ok) done(); else { btn.textContent = "Выдели код и нажми Ctrl+C"; }
+  };
+  try { navigator.clipboard.writeText(text).then(done, fallback); } catch (e) { fallback(); }
+}
+
+function chatBlock(chat) {
+  const d = document.createElement("div");
+  d.className = "chat";
+  const rows = (rs, cls) => `<div class="${cls}">` + rs.map(r => `<div class="key-row">${r.map(k => `<span>${esc(k)}</span>`).join("")}</div>`).join("") + `</div>`;
+  d.innerHTML = `<div class="chat-label">Как должно получиться</div>` + chat.map(([who, t, keys]) => {
+    if (who === "kb") return rows(t, "reply-kb");
+    let h = `<div class="msg ${who}${/^\/\w+/.test(t) && who === "me" ? " cmd" : ""}">${esc(t)}</div>`;
+    if (keys) h += rows(keys, "inline-keys");
+    return h;
+  }).join("");
+  return d;
+}
+
+function htmlNodes(h) { const t = document.createElement("template"); t.innerHTML = h; return [...t.content.childNodes]; }
+function svcWrap(value, build) {
+  if (value && value.__svc) {
+    const out = [];
+    for (const s of ["groq", "openrouter"]) {
+      if (value[s] == null) continue;
+      const box = document.createElement("div");
+      box.className = "svc-only svc-" + s;
+      build(value[s]).forEach(n => box.appendChild(n));
+      out.push(box);
+    }
+    return out;
+  }
+  return value == null ? [] : build(value);
+}
+
+function setTaskFull(el, on) { el.classList.toggle("show-full", on); const b = el.querySelector(".task-full-btn"); if (b) b.textContent = on ? "Скрыть весь код" : "Показать весь код после этого шага"; }
+function renderTask(t, n, key, onToggle) {
+  const el = document.createElement("article");
+  el.className = "task";
+  el.id = key;
+  const doneKey = "d2n:done:" + key;
+  el.innerHTML = `<div class="task-head"><div class="task-num">${n}</div><div class="task-title"><h3>${esc(t.title)}</h3></div>
+    <label class="done-toggle"><input type="checkbox" id="chk-${key}"> Готово</label></div>`;
+  const add = nodes => nodes.forEach(x => el.appendChild(x));
+  if (t.theory) add(htmlNodes(`<div class="theory"><div class="theory-label">Теория</div>${t.theory}</div>`));
+  add(svcWrap(t.body, h => htmlNodes(h)));
+  add(svcWrap(t.code, cs => cs.map(c => codeBlock(c, key))));
+  add(svcWrap(t.twoCol, cols => {
+    const g = document.createElement("div"); g.className = "two-col";
+    cols.forEach(c => { const col = document.createElement("div"); col.style.minWidth = "0"; col.innerHTML = `<div class="col-label">${esc(c.label)}</div>`; col.appendChild(codeBlock(c, key)); g.appendChild(col); });
+    return [g];
+  }));
+  add(svcWrap(t.after, h => htmlNodes(h)));
+  if (t.full) { const b = document.createElement("button"); b.className = "task-full-btn"; b.type = "button"; b.addEventListener("click", () => setTaskFull(el, !el.classList.contains("show-full"))); el.appendChild(b); const f = document.createElement("div"); f.className = "full-code"; f.innerHTML = `<div class="col-label">Весь код после этого шага · <span class="add-demo">новое</span> подсвечено зелёным</div>`; f.appendChild(codeBlock(t.full, key + "f")); el.appendChild(f); setTaskFull(el, false); }
+  add(svcWrap(t.chat, c => [chatBlock(c)]));
+  add(svcWrap(t.callout, c => htmlNodes(`<div class="callout ${c[0]}"><div>${c[1]}</div></div>`)));
+  add(svcWrap(t.hint, h => {
+    const det = document.createElement("details"); det.className = "hint";
+    det.innerHTML = `<summary>Подсказка</summary>${h.text}`;
+    if (h.code) det.appendChild(codeBlock(h.code, key + "h"));
+    return [det];
+  }));
+  const cb = el.querySelector(`#chk-${key}`);
+  cb.checked = store.get(doneKey) === "1";
+  el.classList.toggle("done", cb.checked);
+  cb.addEventListener("change", () => { store.set(doneKey, cb.checked ? "1" : "0"); el.classList.toggle("done", cb.checked); onToggle(); });
+  return el;
+}
+
+function renderPractice(p) {
+  const sec = document.createElement("section");
+  sec.innerHTML = `<div class="practice-head" id="${p.id}">
+      
+      <h2>${esc(p.title)}</h2>
+      <div class="practice-meta"><span class="progress"><span class="progress-bar"><i></i></span><span class="progress-text"></span></span></div>
+    </div>
+    <div class="tasks" data-level="basic" role="tabpanel"></div>
+    <div class="tasks" data-level="middle" role="tabpanel"></div>`;
+  const all = [];
+  const update = () => {
+    const done = all.filter(k => store.get("d2n:done:" + k) === "1").length;
+    sec.querySelector(".progress-bar i").style.width = (100 * done / all.length) + "%";
+    sec.querySelector(".progress-text").textContent = `${done} из ${all.length}`;
+  };
+  ["basic", "middle"].forEach(level => {
+    const box = sec.querySelector(`.tasks[data-level="${level}"]`);
+    p[level].forEach((t, i) => {
+      const key = `${p.id}-${level}-${i + 1}`;
+      all.push(key);
+      box.appendChild(renderTask(t, i + 1, key, update));
+    });
+  });
+  const notes = {
+    basic: "Шаги по порядку: каждый продолжает предыдущий. Всё готово раньше — попробуй задания варианта 2.",
+    middle: "Шаги те же, но код пишешь сам. Работай в своём bot.py.",
+  };
+  const setLevel = level => {
+    sec.querySelectorAll(".tasks").forEach(t => t.hidden = t.dataset.level !== level);
+  };
+  const setLevelOld = level => {
+    sec.querySelectorAll(".level-btn").forEach(b => b.setAttribute("aria-selected", String(b.dataset.level === level)));
+    sec.querySelectorAll(".tasks").forEach(t => t.hidden = t.dataset.level !== level);
+    sec.querySelector(".level-note").textContent = notes[level];
+    store.set("d1s:level:" + p.id, level);
+  };
+  setLevel("basic");
+  update();
+  return sec;
+}
+
+const host = document.getElementById("practices");
+PRACTICES.filter(p => p.id === "p1").forEach(p => host.appendChild(renderPractice(p)));
+(function () {
+  const btn = document.getElementById("fullToggle");
+  let all = false;
+  const set = on => { all = on; document.querySelectorAll(".task").forEach(t => { if (t.querySelector(".full-code")) setTaskFull(t, on); }); btn.setAttribute("aria-pressed", String(on)); btn.textContent = on ? "Скрыть весь код во всех заданиях" : "Показать весь код во всех заданиях"; store.set("full", on ? "1" : "0"); };
+  btn.addEventListener("click", () => set(!all));
+  set(store.get("full") === "1");
+})();
+if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
+</script>
